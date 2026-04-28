@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Read the full story — r/{{SUBREDDIT}} — {{TITLE}}">
+
+  <!-- Google Analytics 4 — replace G-XXXXXXXXXX with your Measurement ID -->
+  <!-- <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-XXXXXXXXXX');
+  </script> -->
+
+  <title>{{TITLE}} — Full Story</title>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0d0d0d;
+      --surface:  #161616;
+      --border:   #2a2a2a;
+      --text:     #e2e2e2;
+      --muted:    #888;
+      --accent:   #ff4444;
+      --accent2:  #ff8800;
+      --green:    #22c55e;
+      --radius:   10px;
+      --max-w:    680px;
+    }
+
+    html { font-size: 17px; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Georgia', 'Times New Roman', serif;
+      line-height: 1.85;
+      padding: 0 16px 100px;
+    }
+
+    /* ── Header ── */
+    .site-header {
+      text-align: center;
+      padding: 28px 0 20px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 28px;
+    }
+    .site-logo {
+      font-family: -apple-system, 'Helvetica Neue', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+
+    /* ── Story card ── */
+    .story-card {
+      max-width: var(--max-w);
+      margin: 0 auto;
+    }
+
+    /* ── Meta badge ── */
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 14px;
+      align-items: center;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-family: -apple-system, sans-serif;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+    .badge .sub  { color: var(--accent2); font-weight: 600; }
+    .badge .num  { color: var(--text); }
+
+    /* ── Page indicator ── */
+    .page-indicator {
+      font-family: -apple-system, sans-serif;
+      font-size: 0.75rem;
+      color: var(--muted);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 12px;
+      margin-left: auto;
+    }
+
+    /* ── Title ── */
+    h1 {
+      font-size: clamp(1.25rem, 4vw, 1.75rem);
+      line-height: 1.35;
+      margin-bottom: 24px;
+      font-weight: 700;
+    }
+
+    /* ── Part 2 reveal banner ── */
+    .reveal-banner {
+      background: linear-gradient(135deg, #1a0a0a, #1a0d00);
+      border-left: 4px solid var(--accent);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 14px 18px;
+      margin-bottom: 28px;
+      font-family: -apple-system, sans-serif;
+      font-size: 0.88rem;
+    }
+    .reveal-banner strong { color: var(--accent); }
+
+    /* ── Story text ── */
+    .story-text p {
+      margin-bottom: 1.2em;
+    }
+    .story-text p:first-child::first-letter {
+      font-size: 3em;
+      float: left;
+      line-height: 0.75;
+      margin-right: 6px;
+      color: var(--accent2);
+      font-weight: 700;
+    }
+
+    /* ── Divider ── */
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 36px 0;
+    }
+
+    /* ── Pagination nav ── */
+    .pagination-nav {
+      display: flex;
+      gap: 12px;
+      margin: 36px 0 24px;
+      justify-content: space-between;
+      align-items: stretch;
+    }
+    .btn-page {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      padding: 16px 20px;
+      border-radius: var(--radius);
+      font-family: -apple-system, sans-serif;
+      font-size: 1rem;
+      font-weight: 700;
+      text-decoration: none;
+      text-align: center;
+      min-height: 56px;
+      transition: opacity 0.15s;
+    }
+    .btn-next {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-prev {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .btn-page:hover { opacity: 0.85; }
+
+    /* ── Email capture ── */
+    .email-capture {
+      background: linear-gradient(135deg, #0a0a1a, #0d0d1a);
+      border: 1px solid #2a2a4a;
+      border-radius: var(--radius);
+      padding: 24px 20px;
+      margin: 36px 0;
+      text-align: center;
+    }
+    .email-headline {
+      font-family: -apple-system, sans-serif;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+    .email-sub {
+      font-family: -apple-system, sans-serif;
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-bottom: 18px;
+    }
+    .email-form {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .email-input {
+      flex: 1;
+      min-width: 200px;
+      padding: 12px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 0.95rem;
+      font-family: -apple-system, sans-serif;
+      outline: none;
+    }
+    .email-input:focus { border-color: #4a4a8a; }
+    .btn-email {
+      padding: 12px 20px;
+      background: #4444cc;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-family: -apple-system, sans-serif;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.15s;
+    }
+    .btn-email:hover { opacity: 0.85; }
+
+    /* ── Affiliate card ── */
+    .affiliate-card {
+      background: linear-gradient(135deg, #0a1a0a, #0d1a0d);
+      border: 1px solid #2a4a2a;
+      border-radius: var(--radius);
+      padding: 20px;
+      margin: 36px 0;
+      text-align: center;
+    }
+    .affiliate-note {
+      font-family: -apple-system, sans-serif;
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 10px;
+    }
+    .affiliate-headline {
+      font-family: -apple-system, sans-serif;
+      font-size: 0.95rem;
+      color: var(--text);
+      margin-bottom: 16px;
+    }
+    .btn-affiliate {
+      display: inline-block;
+      background: var(--green);
+      color: #000;
+      font-family: -apple-system, sans-serif;
+      font-size: 0.9rem;
+      font-weight: 700;
+      text-decoration: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      transition: opacity 0.15s;
+    }
+    .btn-affiliate:hover { opacity: 0.85; }
+
+    /* ── Verdict section ── */
+    .verdict-section {
+      text-align: center;
+      margin: 36px 0;
+    }
+    .verdict-section h2 {
+      font-size: 1.1rem;
+      margin-bottom: 8px;
+      color: var(--text);
+    }
+    .verdict-section p {
+      font-family: -apple-system, sans-serif;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    /* ── CTA button ── */
+    .cta-block {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      text-align: center;
+      margin-top: 36px;
+    }
+    .cta-block p {
+      font-family: -apple-system, sans-serif;
+      font-size: 0.88rem;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+    .btn {
+      display: inline-block;
+      background: var(--accent);
+      color: #fff;
+      font-family: -apple-system, sans-serif;
+      font-size: 0.95rem;
+      font-weight: 700;
+      text-decoration: none;
+      padding: 13px 28px;
+      border-radius: 6px;
+      transition: opacity 0.15s;
+    }
+    .btn:hover { opacity: 0.88; }
+    .btn-secondary {
+      display: inline-block;
+      margin-top: 12px;
+      font-family: -apple-system, sans-serif;
+      font-size: 0.82rem;
+      color: var(--muted);
+      text-decoration: none;
+    }
+
+    /* ── Sticky footer ad placeholder ── */
+    .sticky-ad {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 60px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+    .sticky-ad span {
+      font-family: -apple-system, sans-serif;
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
+    /* Replace .sticky-ad content with your ad network's sticky footer unit */
+
+    /* ── Footer ── */
+    footer {
+      max-width: var(--max-w);
+      margin: 48px auto 0;
+      text-align: center;
+      font-family: -apple-system, sans-serif;
+      font-size: 0.75rem;
+      color: var(--border);
+      line-height: 1.6;
+    }
+    footer a { color: var(--border); }
+
+    /* ── Reading progress bar ── */
+    #progress-bar {
+      position: fixed;
+      top: 0; left: 0;
+      height: 3px;
+      width: 0%;
+      background: var(--accent);
+      z-index: 999;
+      transition: width 0.1s linear;
+    }
+  </style>
+</head>
+<body>
+
+<div id="progress-bar"></div>
+
+<header class="site-header">
+  <span class="site-logo">{{BRAND_NAME}}</span>
+</header>
+
+<main class="story-card">
+
+  <div class="meta">
+    <span class="badge">r/<span class="sub">{{SUBREDDIT}}</span></span>
+    <span class="badge">⬆️ <span class="num">{{SCORE}}</span> upvotes</span>
+    <span class="badge">💬 <span class="num">{{NUM_COMMENTS}}</span> comments</span>
+    {{PAGE_INDICATOR}}
+  </div>
+
+  <h1>{{TITLE}}</h1>
+
+  <div class="reveal-banner">
+    {{REVEAL_BANNER}}
+  </div>
+
+  <article class="story-text">
+{{PART2_PARAS}}
+  </article>
+
+  {{EMAIL_CAPTURE}}
+
+  <hr class="divider">
+
+  {{VERDICT_SECTION}}
+
+  {{AFFILIATE_BLOCK}}
+
+  {{CTA_BLOCK}}
+
+</main>
+
+<footer>
+  <p>Originally posted on r/{{SUBREDDIT}} &nbsp;·&nbsp; {{DATE}}</p>
+  <p style="margin-top:6px">
+    This page presents stories shared publicly on Reddit for educational and entertainment purposes.
+    All original content belongs to its respective author.
+  </p>
+  <p style="margin-top:6px">© {{YEAR}} {{BRAND_NAME}}</p>
+</footer>
+
+<!-- Sticky footer ad — replace content with your ad network's unit -->
+<div class="sticky-ad">
+  <span>Advertisement</span>
+</div>
+
+<script>
+  window.addEventListener('scroll', () => {
+    const el  = document.documentElement;
+    const pct = (el.scrollTop / (el.scrollHeight - el.clientHeight)) * 100;
+    document.getElementById('progress-bar').style.width = Math.min(pct, 100) + '%';
+  });
+</script>
+
+</body>
+</html>
