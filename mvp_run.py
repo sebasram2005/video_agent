@@ -465,23 +465,22 @@ def run_mvp(
     audio_dur = _probe_duration(str(audio_path))
     logger.info(f"Audio: {audio_dur:.1f}s")
 
-    # ── Stage 2: Visual background (Ken Burns > gameplay > color) ────────────
+    # ── Stage 2: Visual background (gameplay > Ken Burns > color) ────────────
     logger.info("[2/4] Preparing visual background...")
     processed_bg = None
 
-    # Priority 1: Ken Burns on Pexels images (targets 25-45 demo, higher CPC)
-    if os.getenv("PEXELS_API_KEY", "").strip():
-        logger.info("  Trying Ken Burns (Pexels images)...")
+    # Priority 1: Gameplay footage
+    logger.info("  Trying gameplay footage...")
+    gameplay_clip = get_gameplay_clip(style=gameplay_style)
+    if gameplay_clip:
+        processed_bg = _prepare_gameplay_bg(gameplay_clip, audio_dur, ts)
+
+    # Priority 2: Ken Burns on Pexels images (fallback when no gameplay clip)
+    if not processed_bg and os.getenv("PEXELS_API_KEY", "").strip():
+        logger.info("  Gameplay not available — trying Ken Burns (Pexels)...")
         processed_bg = _prepare_ken_burns_bg(story, audio_dur)
         if processed_bg:
             logger.info("  Ken Burns background ready")
-
-    # Priority 2: Gameplay footage (fallback when no Pexels key)
-    if not processed_bg:
-        logger.info("  Trying gameplay footage...")
-        gameplay_clip = get_gameplay_clip(style=gameplay_style)
-        if gameplay_clip:
-            processed_bg = _prepare_gameplay_bg(gameplay_clip, audio_dur, ts)
 
     # ── Stage 3: Compose video ────────────────────────────────────────────
     logger.info("[3/4] Composing video...")
