@@ -1,0 +1,60 @@
+name: Daily Reddit Stories Videos
+
+on:
+  schedule:
+    - cron: '0 13 * * *'   # 8:00 AM ET
+    - cron: '0 18 * * *'   # 1:00 PM ET
+    - cron: '0 23 * * *'   # 6:00 PM ET
+  workflow_dispatch:         # manual desde GitHub UI
+
+jobs:
+  generate-and-upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install FFmpeg
+        run: sudo apt-get install -y ffmpeg
+
+      - name: Restore YouTube token
+        run: echo '${{ secrets.YOUTUBE_TOKEN_JSON }}' > youtube_token.json
+
+      - name: Run pipeline
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          BLOG_URL:       ${{ secrets.BLOG_URL }}
+          BRAND_NAME:     ${{ secrets.BRAND_NAME }}
+        run: |
+          python curator.py --auto
+          python mvp_run.py --no-telegram
+          python upload_youtube.py
+
+      - name: Save updated YouTube token
+        run: |
+          TOKEN=$(cat youtube_token.json)
+          gh secret set YOUTUBE_TOKEN_JSON --body "$TOKEN"
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+
+      - name: Commit updated logs to repo
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/stories_log.json data/youtube_uploads.json || true
+          git diff --staged --quiet || git commit -m "chore: update story and upload logs [skip ci]"
+          git push

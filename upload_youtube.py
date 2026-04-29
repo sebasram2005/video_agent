@@ -48,6 +48,7 @@ def _find_client_secrets() -> Path:
     )
 
 TOKEN_FILE    = BASE_DIR / "youtube_token.json"
+UPLOADS_LOG   = BASE_DIR / "data" / "youtube_uploads.json"
 SCOPES        = ["https://www.googleapis.com/auth/youtube.upload"]
 
 BLOG_URL      = os.getenv("BLOG_URL", "https://blogreddit.netlify.app")
@@ -57,6 +58,36 @@ _BASE_TAGS = [
     "RedditStories", "AITA", "StoryTime", "RelationshipAdvice",
     "ForumDrama", "BestOfReddit", "RedditDrama", "Shorts",
 ]
+
+
+# ── Upload log (prevents duplicate uploads) ───────────────────────────────────
+
+def _uploaded_story_ids() -> set:
+    if not UPLOADS_LOG.exists():
+        return set()
+    try:
+        return {e["story_id"] for e in json.loads(UPLOADS_LOG.read_text(encoding="utf-8"))}
+    except Exception:
+        return set()
+
+
+def _record_upload(story_id: str, video_id: str, title: str) -> None:
+    data: list = []
+    if UPLOADS_LOG.exists():
+        try:
+            data = json.loads(UPLOADS_LOG.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    from datetime import datetime
+    data.append({
+        "uploaded_at": datetime.now().isoformat(),
+        "story_id":    story_id,
+        "video_id":    video_id,
+        "youtube_url": f"https://youtube.com/shorts/{video_id}",
+        "title":       title[:120],
+    })
+    UPLOADS_LOG.parent.mkdir(parents=True, exist_ok=True)
+    UPLOADS_LOG.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 # ── OAuth ─────────────────────────────────────────────────────────────────────
@@ -80,7 +111,9 @@ def _get_credentials():
             logger.info(f"Abriendo navegador para autorizar con tu cuenta de YouTube...")
             logger.info("Selecciona la cuenta donde está el canal @reddithistories-h7v")
             flow  = InstalledAppFlow.from_client_secrets_file(str(client_secrets), SCOPES)
-            creds = flow.run_local_server(port=0, open_browser=True)
+            creds = flow.run_local_server(port=0, open_browser=True,
+                                          authorization_prompt_message="",
+                                          prompt="select_account")
             logger.info("Autorización completada.")
 
         TOKEN_FILE.write_text(creds.to_json(), encoding="utf-8")
@@ -91,8 +124,27 @@ def _get_credentials():
 
 # ── Metadata ──────────────────────────────────────────────────────────────────
 
+_EXPLICIT_WORDS = {
+    "fuck", "fucked", "fucking", "fucker", "shit", "shitted", "bullshit",
+    "ass", "asshole", "bitch", "bastard", "cunt", "dick", "pussy", "cock",
+    "whore", "slut", "rape", "raped", "porn", "sex", "nude", "naked",
+}
+
+def _sanitize_title(title: str) -> str:
+    """Replace explicit words in title with asterisks to avoid age restriction."""
+    words = title.split()
+    clean = []
+    for w in words:
+        core = w.strip(".,!?;:'\"").lower()
+        if core in _EXPLICIT_WORDS:
+            clean.append(w[0] + "*" * (len(w) - 1))
+        else:
+            clean.append(w)
+    return " ".join(clean)
+
+
 def _build_metadata(story_data: dict, script_data: dict, private: bool) -> dict:
-    title      = story_data.get("title", "Reddit Story")
+    title      = _sanitize_title(story_data.get("title", "Reddit Story"))
     subreddit  = story_data.get("subreddit", "reddit")
     score      = story_data.get("score", 0)
     hook       = script_data.get("hook_text", title[:80])
@@ -132,7 +184,16 @@ def _build_metadata(story_data: dict, script_data: dict, private: bool) -> dict:
 def upload(video_path: Path, story_data: dict, script_data: dict, private: bool = False) -> str | None:
     """
     Sube el video a YouTube. Devuelve el video_id o None si falla.
+    Rechaza el upload si la historia ya fue subida anteriormente.
     """
+    story_id = story_data.get("id", "")
+    if story_id and story_id in _uploaded_story_ids():
+        logger.error(
+            f"Historia '{story_id}' ya fue subida a YouTube. "
+            "Cura una historia diferente con: python curator.py --auto"
+        )
+        return None
+
     try:
         from googleapiclient.discovery import build
         from googleapiclient.http import MediaFileUpload
@@ -174,6 +235,11 @@ def upload(video_path: Path, story_data: dict, script_data: dict, private: bool 
     video_id  = response.get("id", "")
     video_url = f"https://youtube.com/shorts/{video_id}"
     logger.info(f"Video publicado: {video_url}")
+
+    if video_id and story_id:
+        _record_upload(story_id, video_id, story_data.get("title", ""))
+        logger.info(f"Registrado en youtube_uploads.json — no se volverá a subir esta historia.")
+
     return video_id
 
 

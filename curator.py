@@ -35,7 +35,7 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 OUTPUT_DIR   = Path(__file__).parent / "output"
 CURATED_DIR  = OUTPUT_DIR / "curated"
-STORIES_LOG  = OUTPUT_DIR / "stories_log.json"
+STORIES_LOG  = Path(__file__).parent / "data" / "stories_log.json"
 
 TARGET_SUBREDDITS = SOURCE_SUBREDDITS
 
@@ -79,10 +79,27 @@ def _paragraphs(text: str) -> list[str]:
     return [p.strip() for p in text.split("\n\n") if p.strip()]
 
 
+# Words that trigger YouTube age-restriction on titles — keep content platform-safe
+_EXPLICIT_TITLE_WORDS = {
+    "fuck", "fucked", "fucking", "fucker", "shit", "shitted", "bullshit",
+    "ass", "asshole", "bitch", "bastard", "cunt", "dick", "pussy", "cock",
+    "whore", "slut", "rape", "raped", "porn", "sex", "nude", "naked",
+    "masturbat", "orgasm", "erect", "penis", "vagina",
+}
+
+
+def _has_explicit_title(post: dict) -> bool:
+    title = post.get("title", "").lower()
+    return any(word in title.split() or f"{word}," in title or f"{word}." in title
+               for word in _EXPLICIT_TITLE_WORDS)
+
+
 def _is_suitable(post: dict) -> bool:
     if not post.get("is_self"):
         return False
     if post.get("over_18"):
+        return False
+    if _has_explicit_title(post):
         return False
     text = post.get("selftext", "").strip()
     if not text or text in ("[deleted]", "[removed]"):
@@ -252,6 +269,7 @@ def curate(
     sort: str        = "top",
     time_filter: str = "month",
     account: str     = None,
+    auto: bool       = False,
 ) -> dict | None:
     print("\n" + "=" * 66)
     print("  LA TRAMPA NARRATIVA — Story Curator")
@@ -297,47 +315,59 @@ def curate(
     _print_story_list(top5)
 
     # ── Story selection ────────────────────────────────────────────────────────
-    while True:
-        try:
-            choice = int(input("  Select story [1-5]: ").strip())
-            if 1 <= choice <= len(top5):
-                break
-        except (ValueError, EOFError):
-            pass
-        print("  Enter a number between 1 and 5.")
-
-    post  = top5[choice - 1]
-    text  = _clean(post.get("selftext", ""))
-    paras = _paragraphs(text)
-    total = len(paras)
-
-    print(f"\n  Selected: r/{post['subreddit']}  ⬆️  {post['score']:,}")
-    print(f"  {total} paragraphs  |  {_word_count(text)} words total\n")
-
-    # Full read option
-    show = input("  Show full paragraphs? [y/N]: ").strip().lower()
-    if show == "y":
-        _print_paragraphs(paras)
+    if auto:
+        post  = top5[0]
+        text  = _clean(post.get("selftext", ""))
+        paras = _paragraphs(text)
+        total = len(paras)
+        split = max(1, int(total * 0.70))
+        print(f"  [AUTO] Selected #1: r/{post['subreddit']}  ⬆️  {post['score']:,}")
+        print(f"  {total} paragraphs | split at P{split} (70%)\n")
     else:
-        print()
-        for i, p in enumerate(paras, 1):
-            preview = textwrap.shorten(p, width=80, placeholder="...")
-            print(f"  [P{i:02d}]  {preview}")
-        print()
+        while True:
+            try:
+                choice = int(input("  Select story [1-5]: ").strip())
+                if 1 <= choice <= len(top5):
+                    break
+            except (ValueError, EOFError):
+                pass
+            print("  Enter a number between 1 and 5.")
 
-    # ── Split point selection ─────────────────────────────────────────────────
-    print(f"  Part 1 = everything UP TO the split paragraph (the cliffhanger).")
-    print(f"  Part 2 = everything FROM the split paragraph onwards (the resolution).")
-    print(f"  Tip: pick where the tension peaks and the reader doesn't know what happens.\n")
+        post  = top5[choice - 1]
+        text  = _clean(post.get("selftext", ""))
+        paras = _paragraphs(text)
+        total = len(paras)
 
-    while True:
-        try:
-            split = int(input(f"  Split at paragraph [1-{total - 1}]: ").strip())
-            if 1 <= split < total:
-                break
-        except (ValueError, EOFError):
-            pass
-        print(f"  Enter a number between 1 and {total - 1}.")
+        print(f"\n  Selected: r/{post['subreddit']}  ⬆️  {post['score']:,}")
+        print(f"  {total} paragraphs  |  {_word_count(text)} words total\n")
+
+        show = input("  Show full paragraphs? [y/N]: ").strip().lower()
+        if show == "y":
+            _print_paragraphs(paras)
+        else:
+            print()
+            for i, p in enumerate(paras, 1):
+                preview = textwrap.shorten(p, width=80, placeholder="...")
+                print(f"  [P{i:02d}]  {preview}")
+            print()
+
+        print(f"  Part 1 = everything UP TO the split paragraph (the cliffhanger).")
+        print(f"  Part 2 = everything FROM the split paragraph onwards (the resolution).")
+        print(f"  Tip: pick where the tension peaks and the reader doesn't know what happens.\n")
+
+        while True:
+            try:
+                split = int(input(f"  Split at paragraph [1-{total - 1}]: ").strip())
+                if 1 <= split < total:
+                    break
+            except (ValueError, EOFError):
+                pass
+            print(f"  Enter a number between 1 and {total - 1}.")
+
+        confirm = input("\n  Confirm selection? [Y/n]: ").strip().lower()
+        if confirm == "n":
+            print("  Cancelled.")
+            return None
 
     part1_paras = paras[:split]
     part2_paras = paras[split:]
@@ -346,12 +376,6 @@ def curate(
 
     print(f"\n  Part 1: {_word_count(part1_text)} words (video narration)")
     print(f"  Part 2: {_word_count(part2_text)} words (landing page)")
-
-    # ── Confirm ───────────────────────────────────────────────────────────────
-    confirm = input("\n  Confirm selection? [Y/n]: ").strip().lower()
-    if confirm == "n":
-        print("  Cancelled.")
-        return None
 
     result = {
         "id":          post["id"],
@@ -406,6 +430,8 @@ if __name__ == "__main__":
                             "  A → Legal/Corporate (ProRevenge, MaliciousCompliance, legaladvice...)\n"
                             "  B → Relationship/Family (AITA, survivinginfidelity, relationship_advice...)"
                         ))
+    parser.add_argument("--auto", action="store_true",
+                        help="Non-interactive: auto-pick #1 story, split at 70%%")
     args = parser.parse_args()
 
     MIN_UPVOTES  = args.min_upvotes
@@ -416,4 +442,5 @@ if __name__ == "__main__":
         sort=args.sort,
         time_filter=args.time_filter,
         account=args.account,
+        auto=args.auto,
     )
