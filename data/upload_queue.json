@@ -28,5 +28,35 @@
     "queued_at": "2026-04-28T21:30:12.082413",
     "scheduled_hour": 21,
     "status": "pending"
+  },
+  {
+    "story_id": "1sctjff",
+    "story_path": "output/curated/story_1sctjff.json",
+    "title": "AITAH because I refuse to finish a story if my husband interrupts.",
+    "subreddit": "AITAH",
+    "score": 12169,
+    "queued_at": "2026-04-28T21:32:34.850823",
+    "scheduled_hour": 13,
+    "status": "pending"
+  },
+  {
+    "story_id": "1s8rciv",
+    "story_path": "output/curated/story_1s8rciv.json",
+    "title": "I had gone for 1 week vacation and gave my house keys to my a friend to look aft",
+    "subreddit": "BestofRedditorUpdates",
+    "score": 17283,
+    "queued_at": "2026-04-28T21:32:34.850823",
+    "scheduled_hour": 17,
+    "status": "pending"
+  },
+  {
+    "story_id": "1s7qa9u",
+    "story_path": "output/curated/story_1s7qa9u.json",
+    "title": "AITA for being blunt and saying I will never name our child after wife’s sister ",
+    "subreddit": "AmItheAsshole",
+    "score": 11829,
+    "queued_at": "2026-04-28T21:32:34.850823",
+    "scheduled_hour": 21,
+    "status": "pending"
   }
 ]
