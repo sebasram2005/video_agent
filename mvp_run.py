@@ -168,49 +168,75 @@ def _clean_temp() -> None:
 
 # ── Gameplay preparation ──────────────────────────────────────────────────────
 
+def _is_vertical(clip_path: Path) -> bool:
+    """Return True if the clip is already in portrait/vertical orientation."""
+    result = subprocess.run(
+        ["ffprobe", "-v", "quiet", "-select_streams", "v:0",
+         "-show_entries", "stream=width,height",
+         "-of", "csv=p=0", str(clip_path)],
+        capture_output=True, text=True,
+    )
+    try:
+        w, h = map(int, result.stdout.strip().split(","))
+        return h > w
+    except Exception:
+        return False
+
+
 def _prepare_gameplay_bg(clip_path: Path, target_duration: float, ts: str) -> str | None:
     """
-    Extract a random segment from a gameplay clip, scale to 9:16, color grade.
-    Uses input-seek (-ss before -i) for fast random access — requires a proper
-    MP4 with keyframe index. Falls back to output-seek if that fails.
+    Extract a random segment from a gameplay clip and convert to 9:16 portrait.
+
+    Strategy — blur composite (works for any aspect ratio):
+      - Background: source scaled to fill 1080x1920, blurred heavily
+      - Foreground: source scaled so gameplay fills 70% of frame height,
+                    cropped to 1080 wide, centered over the blurred bg
+    This ensures the action is always visible regardless of source orientation.
     """
     src_dur   = _probe_duration(str(clip_path)) or 60.0
     max_start = max(0.0, src_dur - target_duration - 5)
     start_sec = random.uniform(0, max_start) if max_start > 0 else 0.0
     dst       = str(TEMP_DIR / f"gameplay_{ts}.mp4")
 
-    # Scale landscape to portrait: scale height to 1920, crop center 1080 wide.
-    # -2 ensures width is divisible by 2 (libx264 requirement).
-    vf = (
-        f"scale=-2:{VIDEO_HEIGHT},"
-        f"crop={VIDEO_WIDTH}:{VIDEO_HEIGHT},"
-        "eq=saturation=1.10:brightness=0.01:contrast=1.08"
+    fg_h = int(VIDEO_HEIGHT * 0.72)      # foreground occupies 72% of frame height
+    fg_h = fg_h - (fg_h % 2)            # must be even for libx264
+
+    # Blur composite filter:
+    #  [bg] fill full frame → heavy blur
+    #  [fg] scale to fg_h, crop to VIDEO_WIDTH → crisp gameplay
+    #  overlay fg centered on bg
+    eq    = "eq=saturation=1.12:brightness=0.01:contrast=1.08"
+    fc = (
+        f"split=2[s1][s2];"
+        f"[s1]scale={VIDEO_WIDTH}:{VIDEO_HEIGHT}:force_original_aspect_ratio=increase,"
+        f"crop={VIDEO_WIDTH}:{VIDEO_HEIGHT},{eq},"
+        f"boxblur=luma_radius=28:luma_power=2[bg];"
+        f"[s2]scale=-2:{fg_h},{eq},"
+        f"crop={VIDEO_WIDTH}:{fg_h}[fg];"
+        f"[bg][fg]overlay=(W-w)/2:(H-h)/2[vout]"
     )
 
-    # Try fast input-seek first (instantaneous for indexed MP4s)
-    ok = _run_ffmpeg([
+    base_cmd = [
         "ffmpeg", "-y",
-        "-ss", f"{start_sec:.3f}", "-i", str(clip_path),
         "-t", f"{target_duration + 1:.3f}",
-        "-vf", vf,
+        "-filter_complex", fc,
+        "-map", "[vout]",
         "-c:v", "libx264", "-preset", "fast", "-crf", "22",
         "-pix_fmt", "yuv420p", "-r", str(VIDEO_FPS), "-an",
         dst,
-    ], "gameplay_fast_seek")
+    ]
+
+    ok = _run_ffmpeg(
+        ["ffmpeg", "-y", "-ss", f"{start_sec:.3f}", "-i", str(clip_path)] + base_cmd[2:],
+        "gameplay_fast_seek",
+    )
 
     if not ok:
-        # Fallback: output-seek (slower, decodes from start, but works on any file)
         logger.warning("Fast seek failed — using output seek (slower)...")
-        ok = _run_ffmpeg([
-            "ffmpeg", "-y",
-            "-i", str(clip_path),
-            "-ss", f"{start_sec:.3f}",
-            "-t", f"{target_duration + 1:.3f}",
-            "-vf", vf,
-            "-c:v", "libx264", "-preset", "fast", "-crf", "22",
-            "-pix_fmt", "yuv420p", "-r", str(VIDEO_FPS), "-an",
-            dst,
-        ], "gameplay_output_seek")
+        ok = _run_ffmpeg(
+            ["ffmpeg", "-y", "-i", str(clip_path), "-ss", f"{start_sec:.3f}"] + base_cmd[2:],
+            "gameplay_output_seek",
+        )
 
     if not ok:
         return None
