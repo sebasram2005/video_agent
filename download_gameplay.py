@@ -18,8 +18,6 @@ import os
 import random
 import subprocess
 import sys
-import tempfile
-import urllib.request
 from pathlib import Path
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -64,12 +62,12 @@ def _existing_clips() -> list[Path]:
 
 def _fetch_r2_manifest(public_url: str) -> list[dict] | None:
     """Fetch manifest.json from R2 and return list of clip dicts."""
-    import json
+    import requests as _requests
     url = f"{public_url.rstrip('/')}/manifest.json"
     try:
-        with urllib.request.urlopen(url, timeout=10) as resp:
-            data = json.loads(resp.read())
-        clips = data.get("clips", [])
+        r = _requests.get(url, timeout=15)
+        r.raise_for_status()
+        clips = r.json().get("clips", [])
         if clips:
             return clips
     except Exception as e:
@@ -79,6 +77,7 @@ def _fetch_r2_manifest(public_url: str) -> list[dict] | None:
 
 def _download_from_r2(clip: dict) -> Path | None:
     """Download a single clip from R2 to GAMEPLAY_DIR."""
+    import requests as _requests
     GAMEPLAY_DIR.mkdir(parents=True, exist_ok=True)
     dest = GAMEPLAY_DIR / clip["name"]
 
@@ -88,7 +87,11 @@ def _download_from_r2(clip: dict) -> Path | None:
     url = clip["url"]
     print(f"  [R2] Downloading {clip['name']} ...", end=" ", flush=True)
     try:
-        urllib.request.urlretrieve(url, dest)
+        with _requests.get(url, stream=True, timeout=120) as r:
+            r.raise_for_status()
+            with open(dest, "wb") as f:
+                for chunk in r.iter_content(chunk_size=8 * 1024 * 1024):
+                    f.write(chunk)
         size_mb = dest.stat().st_size / 1_048_576
         print(f"{size_mb:.1f} MB  OK")
         return dest
