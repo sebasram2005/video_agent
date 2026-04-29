@@ -144,20 +144,24 @@ def _sanitize_title(title: str) -> str:
 
 
 def _build_metadata(story_data: dict, script_data: dict, private: bool) -> dict:
-    title      = _sanitize_title(story_data.get("title", "Reddit Story"))
-    subreddit  = story_data.get("subreddit", "reddit")
-    score      = story_data.get("score", 0)
-    hook       = script_data.get("hook_text", title[:80])
-    custom_tags = [t.lstrip("#") for t in script_data.get("hashtags", [])]
-    all_tags   = list(dict.fromkeys(_BASE_TAGS + custom_tags))[:15]
+    reddit_title = _sanitize_title(story_data.get("title", "Reddit Story"))
+    subreddit    = story_data.get("subreddit", "reddit")
+    score        = story_data.get("score", 0)
+    hook         = script_data.get("hook_text", "").strip()
+    custom_tags  = [t.lstrip("#") for t in script_data.get("hashtags", [])]
+    all_tags     = list(dict.fromkeys(_BASE_TAGS + custom_tags))[:15]
 
-    # Título de YouTube: máx 100 chars, debe incluir #Shorts para activar el feed
-    yt_title = f"{title} #Shorts"
-    if len(yt_title) > 100:
-        yt_title = title[:96] + " #Sh"
+    # YouTube title: use GPT hook_text (short, compelling) + #Shorts
+    # Falls back to truncated Reddit title if hook is missing
+    if hook and len(hook) <= 80:
+        yt_title = f"{hook} #Shorts"
+    else:
+        # Truncate cleanly at a word boundary
+        short = reddit_title[:70].rsplit(" ", 1)[0]
+        yt_title = f"{short}... #Shorts"
 
     description = (
-        f"{hook}\n\n"
+        f"🔥 {hook}\n\n"
         f"r/{subreddit} • ⬆️ {score:,} upvotes\n\n"
         f"📖 Read the FULL story (with the ending) here:\n{BLOG_URL}\n\n"
         f"💬 Drop your verdict in the comments 👇\n\n"
