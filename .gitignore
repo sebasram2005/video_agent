@@ -2,9 +2,14 @@
 .env
 .env.local
 
-# Generated output — videos, landings, curated stories
-output/
+# Generated output — videos and landings (large files, not tracked)
+output/mvp_*/
+output/curated/latest.json
 temp/
+
+# Curated story JSONs ARE tracked (GitHub Actions needs them)
+!output/curated/
+!output/curated/*.json
 
 # Python cache
 __pycache__/

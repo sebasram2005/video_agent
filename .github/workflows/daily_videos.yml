@@ -1,11 +1,10 @@
-name: Daily Reddit Stories Videos
+name: Generate & Upload Video
 
 on:
-  schedule:
-    - cron: '0 13 * * *'   # 8:00 AM ET
-    - cron: '0 18 * * *'   # 1:00 PM ET
-    - cron: '0 23 * * *'   # 6:00 PM ET
-  workflow_dispatch:         # manual desde GitHub UI
+  push:
+    paths:
+      - 'data/stories_log.json'   # triggers when curator pushes a new story
+  workflow_dispatch:               # manual trigger from GitHub UI
 
 jobs:
   generate-and-upload:
@@ -33,30 +32,27 @@ jobs:
       - name: Restore YouTube token
         run: echo '${{ secrets.YOUTUBE_TOKEN_JSON }}' > youtube_token.json
 
-      - name: Run pipeline
+      - name: Generate video
         env:
-          OPENAI_API_KEY:       ${{ secrets.OPENAI_API_KEY }}
-          PEXELS_API_KEY:       ${{ secrets.PEXELS_API_KEY }}
-          BLOG_URL:             ${{ secrets.BLOG_URL }}
-          BRAND_NAME:           ${{ secrets.BRAND_NAME }}
-          REDDIT_CLIENT_ID:     ${{ secrets.REDDIT_CLIENT_ID }}
-          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
-        run: |
-          python curator.py --auto
-          python mvp_run.py --no-telegram
-          python upload_youtube.py
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          BLOG_URL:       ${{ secrets.BLOG_URL }}
+          BRAND_NAME:     ${{ secrets.BRAND_NAME }}
+        run: python mvp_run.py --no-telegram
+
+      - name: Upload to YouTube
+        run: python upload_youtube.py
 
       - name: Save updated YouTube token
         run: |
-          TOKEN=$(cat youtube_token.json)
-          gh secret set YOUTUBE_TOKEN_JSON --body "$TOKEN"
+          gh secret set YOUTUBE_TOKEN_JSON --body "$(cat youtube_token.json)"
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
 
-      - name: Commit updated logs to repo
+      - name: Commit updated upload log
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/stories_log.json data/youtube_uploads.json || true
-          git diff --staged --quiet || git commit -m "chore: update story and upload logs [skip ci]"
+          git add data/youtube_uploads.json
+          git diff --staged --quiet || git commit -m "chore: update upload log [skip ci]"
           git push
