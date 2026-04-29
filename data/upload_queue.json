@@ -58,5 +58,25 @@
     "queued_at": "2026-04-28T21:32:34.850823",
     "scheduled_hour": 21,
     "status": "pending"
+  },
+  {
+    "story_id": "1sjsenk",
+    "story_path": "output/curated/story_1sjsenk.json",
+    "title": "Update: AITAH for refusing a wedding \"gift\" knowing there will be strings attach",
+    "subreddit": "AITAH",
+    "score": 22636,
+    "queued_at": "2026-04-28T21:34:12.471289",
+    "scheduled_hour": 13,
+    "status": "pending"
+  },
+  {
+    "story_id": "1shbwsw",
+    "story_path": "output/curated/story_1shbwsw.json",
+    "title": "AITA for leaving my bf bday dinner after his mom took my seat?",
+    "subreddit": "BestofRedditorUpdates",
+    "score": 14775,
+    "queued_at": "2026-04-28T21:34:12.471289",
+    "scheduled_hour": 17,
+    "status": "pending"
   }
 ]
