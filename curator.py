@@ -44,18 +44,52 @@ MIN_COMMENTS = 500
 MIN_WORDS    = 300
 MAX_WORDS    = 3_000
 
-_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (compatible; CuratorBot/1.0)"
-}
+_USER_AGENT = "RedditStoriesBot/1.0 by u/redditbot"
+_HEADERS    = {"User-Agent": _USER_AGENT}
+
+_reddit_token: str | None = None
+
+
+def _get_reddit_token() -> str | None:
+    """OAuth2 client_credentials — works from any IP including GitHub Actions."""
+    client_id     = os.getenv("REDDIT_CLIENT_ID", "").strip()
+    client_secret = os.getenv("REDDIT_CLIENT_SECRET", "").strip()
+    if not client_id or not client_secret:
+        return None
+    try:
+        r = requests.post(
+            "https://www.reddit.com/api/v1/access_token",
+            auth=(client_id, client_secret),
+            data={"grant_type": "client_credentials"},
+            headers={"User-Agent": _USER_AGENT},
+            timeout=10,
+        )
+        r.raise_for_status()
+        return r.json().get("access_token")
+    except Exception as e:
+        print(f"  [warn] Reddit OAuth failed: {e}")
+        return None
 
 
 # ── Reddit fetcher ────────────────────────────────────────────────────────────
 
 def _fetch(subreddit: str, sort: str, time_filter: str, limit: int = 50) -> list[dict]:
-    url    = f"https://www.reddit.com/r/{subreddit}/{sort}.json"
+    global _reddit_token
+
+    # Try OAuth API first (required for GitHub Actions — Reddit blocks cloud IPs on .json)
+    if _reddit_token is None:
+        _reddit_token = _get_reddit_token() or ""
+
+    if _reddit_token:
+        url     = f"https://oauth.reddit.com/r/{subreddit}/{sort}"
+        headers = {"User-Agent": _USER_AGENT, "Authorization": f"Bearer {_reddit_token}"}
+    else:
+        url     = f"https://www.reddit.com/r/{subreddit}/{sort}.json"
+        headers = _HEADERS
+
     params = {"limit": limit, "t": time_filter, "raw_json": 1}
     try:
-        r = requests.get(url, headers=_HEADERS, params=params, timeout=15)
+        r = requests.get(url, headers=headers, params=params, timeout=15)
         r.raise_for_status()
         return [p["data"] for p in r.json()["data"]["children"]]
     except Exception as e:

@@ -35,10 +35,12 @@ jobs:
 
       - name: Run pipeline
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
-          BLOG_URL:       ${{ secrets.BLOG_URL }}
-          BRAND_NAME:     ${{ secrets.BRAND_NAME }}
+          OPENAI_API_KEY:       ${{ secrets.OPENAI_API_KEY }}
+          PEXELS_API_KEY:       ${{ secrets.PEXELS_API_KEY }}
+          BLOG_URL:             ${{ secrets.BLOG_URL }}
+          BRAND_NAME:           ${{ secrets.BRAND_NAME }}
+          REDDIT_CLIENT_ID:     ${{ secrets.REDDIT_CLIENT_ID }}
+          REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
         run: |
           python curator.py --auto
           python mvp_run.py --no-telegram
