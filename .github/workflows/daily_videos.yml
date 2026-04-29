@@ -80,6 +80,7 @@ jobs:
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           BLOG_URL:       ${{ secrets.BLOG_URL }}
           BRAND_NAME:     ${{ secrets.BRAND_NAME }}
+          R2_PUBLIC_URL:  ${{ secrets.R2_PUBLIC_URL }}
         run: python mvp_run.py --no-telegram --story "${{ steps.check.outputs.story_path }}"
 
       - name: Upload to YouTube
