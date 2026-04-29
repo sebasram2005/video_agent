@@ -212,7 +212,7 @@ def _prepare_gameplay_bg(clip_path: Path, target_duration: float, ts: str) -> st
         f"crop={VIDEO_WIDTH}:{VIDEO_HEIGHT},{eq},"
         f"boxblur=luma_radius=28:luma_power=2[bg];"
         f"[s2]scale=-2:{fg_h},{eq},"
-        f"crop=min(iw,{VIDEO_WIDTH}):{fg_h}[fg];"
+        f"crop=min(iw\\,{VIDEO_WIDTH}):{fg_h}[fg];"
         f"[bg][fg]overlay=(W-w)/2:(H-h)/2[vout]"
     )
 
