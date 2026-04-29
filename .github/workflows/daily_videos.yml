@@ -84,7 +84,7 @@ jobs:
 
       - name: Upload to YouTube
         if: steps.check.outputs.has_story == 'true'
-        run: python upload_youtube.py
+        run: python upload_youtube.py --story "${{ steps.check.outputs.story_path }}"
 
       - name: Mark story as done in queue
         if: steps.check.outputs.has_story == 'true'

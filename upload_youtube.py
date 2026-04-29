@@ -254,12 +254,15 @@ def _find_latest_run() -> Path | None:
     return runs[-1] if runs else None
 
 
-def _load_story_and_script(run_dir: Path) -> tuple[dict, dict]:
-    """Carga story JSON del run o del curated/latest.json como fallback."""
-    story_json = OUTPUT_DIR / "curated" / "latest.json"
+def _load_story_and_script(story_path: Path | None = None) -> tuple[dict, dict]:
+    """Load story JSON from an explicit path, or fall back to latest.json."""
+    if story_path and story_path.exists():
+        story_json = story_path
+    else:
+        story_json = OUTPUT_DIR / "curated" / "latest.json"
+
     story_data = json.loads(story_json.read_text(encoding="utf-8")) if story_json.exists() else {}
 
-    # script_data no se guarda actualmente — reconstruimos lo mínimo necesario
     script_data = {
         "hook_text":        story_data.get("title", "")[:80],
         "source_subreddit": story_data.get("subreddit", ""),
@@ -273,6 +276,7 @@ def _load_story_and_script(run_dir: Path) -> tuple[dict, dict]:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Subir video a YouTube Shorts")
     parser.add_argument("--video",   metavar="PATH", help="Ruta al video.mp4")
+    parser.add_argument("--story",   metavar="PATH", help="Ruta al story JSON (para metadatos correctos)")
     parser.add_argument("--private", action="store_true", help="Subir como privado")
     args = parser.parse_args()
 
@@ -289,7 +293,7 @@ if __name__ == "__main__":
         logger.error(f"Video no encontrado: {video_path}")
         sys.exit(1)
 
-    story_data, script_data = _load_story_and_script(video_path.parent)
+    story_data, script_data = _load_story_and_script(Path(args.story) if args.story else None)
 
     video_id = upload(video_path, story_data, script_data, private=args.private)
     if video_id:
