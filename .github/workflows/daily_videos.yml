@@ -1,10 +1,11 @@
 name: Generate & Upload Video
 
 on:
-  push:
-    paths:
-      - 'data/stories_log.json'   # triggers when curator pushes a new story
-  workflow_dispatch:               # manual trigger from GitHub UI
+  schedule:
+    - cron: '0 13 * * *'   # 9:00 AM ET
+    - cron: '0 17 * * *'   # 1:00 PM ET
+    - cron: '0 21 * * *'   # 5:00 PM ET
+  workflow_dispatch:         # manual desde GitHub UI
 
 jobs:
   generate-and-upload:
@@ -17,42 +18,98 @@ jobs:
         with:
           token: ${{ secrets.GH_PAT }}
 
+      - name: Check queue
+        id: check
+        run: |
+          python - <<'EOF'
+          import json, os, sys
+          from datetime import datetime, timezone
+
+          queue_file = "data/upload_queue.json"
+          if not os.path.exists(queue_file):
+              print("No queue file found.")
+              print("has_story=false", file=open(os.environ["GITHUB_OUTPUT"], "a"))
+              sys.exit(0)
+
+          queue = json.loads(open(queue_file).read())
+          current_hour = datetime.now(timezone.utc).hour
+
+          pending = [e for e in queue if e.get("status") == "pending"
+                     and e.get("scheduled_hour") == current_hour]
+
+          if not pending:
+              # Fallback: pick oldest pending story regardless of hour
+              pending = [e for e in queue if e.get("status") == "pending"]
+
+          if not pending:
+              print("No pending stories in queue.")
+              print("has_story=false", file=open(os.environ["GITHUB_OUTPUT"], "a"))
+              sys.exit(0)
+
+          story = pending[0]
+          print(f"Processing: {story['title'][:60]}")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              print(f"has_story=true", file=f)
+              print(f"story_path={story['story_path']}", file=f)
+              print(f"story_id={story['story_id']}", file=f)
+          EOF
+
       - name: Set up Python
+        if: steps.check.outputs.has_story == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
 
       - name: Install dependencies
+        if: steps.check.outputs.has_story == 'true'
         run: pip install -r requirements.txt
 
       - name: Install FFmpeg
+        if: steps.check.outputs.has_story == 'true'
         run: sudo apt-get install -y ffmpeg
 
       - name: Restore YouTube token
+        if: steps.check.outputs.has_story == 'true'
         run: echo '${{ secrets.YOUTUBE_TOKEN_JSON }}' > youtube_token.json
 
       - name: Generate video
+        if: steps.check.outputs.has_story == 'true'
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
           BLOG_URL:       ${{ secrets.BLOG_URL }}
           BRAND_NAME:     ${{ secrets.BRAND_NAME }}
-        run: python mvp_run.py --no-telegram
+        run: python mvp_run.py --no-telegram --story "${{ steps.check.outputs.story_path }}"
 
       - name: Upload to YouTube
+        if: steps.check.outputs.has_story == 'true'
         run: python upload_youtube.py
 
-      - name: Save updated YouTube token
+      - name: Mark story as done in queue
+        if: steps.check.outputs.has_story == 'true'
         run: |
-          gh secret set YOUTUBE_TOKEN_JSON --body "$(cat youtube_token.json)"
+          python - <<'EOF'
+          import json
+          story_id = "${{ steps.check.outputs.story_id }}"
+          queue = json.loads(open("data/upload_queue.json").read())
+          for e in queue:
+              if e["story_id"] == story_id:
+                  e["status"] = "uploaded"
+          open("data/upload_queue.json", "w").write(json.dumps(queue, indent=2))
+          EOF
+
+      - name: Save updated YouTube token
+        if: steps.check.outputs.has_story == 'true'
+        run: gh secret set YOUTUBE_TOKEN_JSON --body "$(cat youtube_token.json)"
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
 
-      - name: Commit updated upload log
+      - name: Commit updated logs
+        if: steps.check.outputs.has_story == 'true'
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/youtube_uploads.json
-          git diff --staged --quiet || git commit -m "chore: update upload log [skip ci]"
+          git add data/upload_queue.json data/youtube_uploads.json
+          git diff --staged --quiet || git commit -m "chore: mark story uploaded [skip ci]"
           git push
