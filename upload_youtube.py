@@ -151,12 +151,13 @@ def _build_metadata(story_data: dict, script_data: dict, private: bool) -> dict:
     custom_tags  = [t.lstrip("#") for t in script_data.get("hashtags", [])]
     all_tags     = list(dict.fromkeys(_BASE_TAGS + custom_tags))[:15]
 
-    # YouTube title: use GPT hook_text (short, compelling) + #Shorts
-    # Falls back to truncated Reddit title if hook is missing
-    if hook and len(hook) <= 80:
+    # YouTube title: prefer GPT-generated yt_title, then hook_text, then Reddit title
+    gpt_title = script_data.get("yt_title", "").strip()
+    if gpt_title:
+        yt_title = _sanitize_title(gpt_title)[:90] + " #Shorts"
+    elif hook and len(hook) <= 80:
         yt_title = f"{hook} #Shorts"
     else:
-        # Truncate cleanly at a word boundary
         short = reddit_title[:70].rsplit(" ", 1)[0]
         yt_title = f"{short}... #Shorts"
 
@@ -265,6 +266,7 @@ def _load_story_and_script(story_path: Path | None = None) -> tuple[dict, dict]:
 
     script_data = {
         "hook_text":        story_data.get("title", "")[:80],
+        "yt_title":         story_data.get("yt_title", ""),
         "source_subreddit": story_data.get("subreddit", ""),
         "source_score":     story_data.get("score", 0),
         "hashtags":         ["#AITA", "#RedditStories", "#StoryTime",

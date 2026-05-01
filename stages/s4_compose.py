@@ -46,11 +46,11 @@ def _fmt_ass_time(seconds: float) -> str:
 
 
 def build_ass_subtitles(word_timestamps: list[dict], style_idx: int = 0) -> str:
-    font, base_px, active_px, active_bgr, base_bgr, outline_bgr = (
-        _SUBTITLE_STYLES[style_idx % len(_SUBTITLE_STYLES)]
-    )
-
-    margin_v = int(VIDEO_HEIGHT * 0.33)
+    # One word at a time — large, bold, uppercase, black outline, no animation.
+    # Pauses in the audio create natural blank periods between words.
+    font     = "Arial Rounded MT Bold"
+    size     = 105
+    margin_v = int(VIDEO_HEIGHT * 0.22)   # ~420px from bottom → lower third
 
     header = (
         "[Script Info]\n"
@@ -63,57 +63,38 @@ def build_ass_subtitles(word_timestamps: list[dict], style_idx: int = 0) -> str:
         "OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, "
         "ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, "
         "Alignment, MarginL, MarginR, MarginV, Encoding\n"
-        f"Style: Default,{font},{base_px},{base_bgr},&H00000000,"
-        f"{outline_bgr},&H90000000,-1,0,0,0,100,100,2,0,1,5,2,2,"
+        f"Style: Default,{font},{size},&H00FFFFFF,&H00000000,"
+        f"&H00000000,&H00000000,-1,0,0,0,100,100,0,0,1,6,0,2,"
         f"60,60,{margin_v},1\n\n"
         "[Events]\n"
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\n"
     )
 
-    # Group words into fixed chunks of 4.
-    # Each chunk stays on screen for all its words — only the highlighted word changes.
-    # This eliminates: (1) gaps between events, (2) text jumping every single word.
-    WORDS_PER_GROUP = 4
-    groups = [word_timestamps[i:i + WORDS_PER_GROUP]
-              for i in range(0, len(word_timestamps), WORDS_PER_GROUP)]
-
     events = []
-    for g_idx, group in enumerate(groups):
-        next_start = groups[g_idx + 1][0]["start"] if g_idx + 1 < len(groups) else None
+    for i, w in enumerate(word_timestamps):
+        word = w["word"].strip(".,!?;:\"'").strip()
+        if not word:
+            continue
 
-        for w_idx, current in enumerate(group):
-            start = current["start"]
+        start   = w["start"]
+        nat_end = start + w["duration"]
 
-            # End = next word's start (no gap), or natural end for last word of last group
-            if w_idx + 1 < len(group):
-                end = group[w_idx + 1]["start"]
-            elif next_start is not None:
-                end = next_start
-            else:
-                end = current["start"] + current["duration"]
+        if i + 1 < len(word_timestamps):
+            next_start = word_timestamps[i + 1]["start"]
+            gap = next_start - nat_end
+            # Tiny gap (<0.18s): extend to next word so no flicker.
+            # Real pause (>=0.18s): end naturally — blank screen mirrors audio silence.
+            end = next_start if gap < 0.18 else nat_end
+        else:
+            end = nat_end
 
-            parts = []
-            for j, w in enumerate(group):
-                word_text = w["word"].strip(".,!?;:")
-                if not word_text:
-                    continue
-                if j == w_idx:
-                    parts.append(
-                        f"{{\\c{active_bgr}&\\b1\\fs{active_px}"
-                        f"\\t(0,80,\\fscx115\\fscy115)\\t(80,200,\\fscx100\\fscy100)}}"
-                        f"{word_text}{{\\r}}"
-                    )
-                else:
-                    parts.append(
-                        f"{{\\c{base_bgr}&\\b0\\fs{base_px}\\alpha&H30&}}"
-                        f"{word_text}{{\\r}}"
-                    )
+        if end <= start:
+            end = start + 0.08
 
-            if parts:
-                events.append(
-                    f"Dialogue: 0,{_fmt_ass_time(start)},{_fmt_ass_time(end)},"
-                    f"Default,,0,0,0,,{' '.join(parts)}"
-                )
+        events.append(
+            f"Dialogue: 0,{_fmt_ass_time(start)},{_fmt_ass_time(end)},"
+            f"Default,,0,0,0,,{word.upper()}"
+        )
 
     return header + "\n".join(events)
 

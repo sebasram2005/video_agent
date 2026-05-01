@@ -475,6 +475,12 @@ def run_mvp(
         script   = generate_script(story_for_script)
         tts_text = build_full_narration(script)
         logger.info(f"  Hook: {script['hook_text']}")
+        # Persist GPT-generated title back to story JSON so upload_youtube.py can use it
+        if script.get("yt_title"):
+            story["yt_title"] = script["yt_title"]
+            story_path.write_text(
+                json.dumps(story, indent=2, ensure_ascii=False), encoding="utf-8"
+            )
     except Exception as e:
         logger.warning(f"Script generation failed ({e}) — falling back to raw title")
         tts_text = f"{story['title']}. {story['part1_text']} Read the FULL story — link in my bio."

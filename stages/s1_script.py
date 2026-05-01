@@ -93,6 +93,7 @@ RESPOND ONLY with valid JSON (no markdown, no extra text):
   "story_category": "one of: betrayal, revenge, family_drama, relationship, workplace, entitled_person, confession",
   "topic_tag": "3-word English topic tag",
   "blog_title": "SEO blog title for full story",
+  "yt_title": "YouTube title. Max 90 chars. Emotional hook that creates curiosity — do NOT copy the Reddit title. Do NOT start with AITA/AITAH. Write it like a tabloid headline: state the drama, imply the conflict, make the viewer need to know the verdict. Example good titles: 'She Returned His Gift And Said She Deserved Better' / 'His Own Mom Sided Against Him At The Wedding' / 'She Found The Messages And Confronted Him In Public'.",
   "hashtags": ["#AITA", "#RedditStories", "#StoryTime", "#RelationshipAdvice", "#ForumDrama", "#Shorts", "#Reels"]
 }}"""
 
