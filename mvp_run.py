@@ -242,8 +242,17 @@ def _prepare_gameplay_bg(clip_path: Path, target_duration: float, ts: str) -> st
         return None
 
     actual_dur = _probe_duration(dst)
+    if actual_dur < 1.0 and start_sec > 0:
+        # Bad duration metadata caused seek past actual video end — retry from start
+        logger.warning(f"Seek to {start_sec:.0f}s produced {actual_dur:.1f}s output — retrying from 0s")
+        ok = _run_ffmpeg(
+            ["ffmpeg", "-y", "-i", str(clip_path)] + base_cmd[2:],
+            "gameplay_retry_from_start",
+        )
+        actual_dur = _probe_duration(dst)
+
     logger.info(f"Gameplay ready: {actual_dur:.1f}s from {clip_path.name} (start {start_sec:.0f}s)")
-    return dst
+    return dst if actual_dur > 1.0 else None
 
 
 # ── Ken Burns background from Pexels images ──────────────────────────────────
