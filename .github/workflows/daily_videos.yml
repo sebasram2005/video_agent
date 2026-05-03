@@ -1,13 +1,6 @@
 name: Generate & Upload Video
 
 on:
-  schedule:
-    - cron: '0 13 * * *'   # 9:00 AM ET  (primary)
-    - cron: '45 13 * * *'  # 9:45 AM ET  (backup — GitHub crons can drift)
-    - cron: '0 17 * * *'   # 1:00 PM ET  (primary)
-    - cron: '45 17 * * *'  # 1:45 PM ET  (backup)
-    - cron: '0 21 * * *'   # 5:00 PM ET  (primary)
-    - cron: '45 21 * * *'  # 5:45 PM ET  (backup)
   workflow_dispatch:         # manual desde GitHub UI
 
 jobs:
